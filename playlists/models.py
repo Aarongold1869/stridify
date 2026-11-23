@@ -1,7 +1,6 @@
+from music.choices import SyncRatio
+
 from django.db import models
-
-# Create your models here.
-
 from django.conf import settings
 from django.db import models
 from django.core.validators import (
@@ -57,11 +56,6 @@ class Playlist(models.Model):
 
 class PlaylistTrack(models.Model):
 
-    class SyncRatio(models.TextChoices):
-        HALF_TIME = "0.5", "Half Time"
-        ONE_TO_ONE = "1.0", "One Beat Per Step"
-        DOUBLE_TIME = "2.0", "Double Time"
-
     playlist = models.ForeignKey(
         Playlist,
         on_delete=models.CASCADE,
@@ -79,10 +73,6 @@ class PlaylistTrack(models.Model):
     match_score = models.DecimalField(
         max_digits=6,
         decimal_places=2,
-        validators=[
-            MinValueValidator(0),
-            MaxValueValidator(100),
-        ],
     )
 
     sync_ratio = models.CharField(
@@ -102,9 +92,3 @@ class PlaylistTrack(models.Model):
                 name="unique_playlist_position",
             ),
         ]
-
-    def __str__(self):
-        return (
-            f"{self.playlist.name} - "
-            f"{self.track.title} ({self.position})"
-        )

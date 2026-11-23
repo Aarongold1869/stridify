@@ -56,6 +56,11 @@ class RunnerProfile(models.Model):
         validators=[MinValueValidator(1)],
     )
 
+    cadence_observed_pace_seconds = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
