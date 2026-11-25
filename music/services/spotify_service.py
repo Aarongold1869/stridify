@@ -7,6 +7,7 @@ from decimal import Decimal
 from music.models import Track, Genre, TrackProviderMapping
 from music.services.audio_analysis_service import AudioAnalysisService
 from music.services.lastfm_service import LastFmService
+from music.services.sonovault_service import SonoVaultService
 
 
 class SpotifyService:
@@ -121,11 +122,16 @@ class SpotifyService:
         bpm = features['bpm'] if features else None
         energy = features['energy'] if features else Decimal('0.5')
 
-        # Fallback 1: audio analysis on preview URL
+        # Fallback 1: SonoVault by ISRC (most reliable)
+        isrc = spotify_track.get('external_ids', {}).get('isrc')
+        if not bpm and isrc:
+            bpm = SonoVaultService.get_track_bpm(isrc)
+
+        # Fallback 2: audio analysis on preview URL
         if not bpm:
             bpm = AudioAnalysisService.get_tempo_for_track(spotify_track)
 
-        # Fallback 2: Last.fm genre-based estimation
+        # Fallback 3: Last.fm genre-based estimation
         if not bpm:
             artist = ', '.join([a['name'] for a in spotify_track['artists']])
             title = spotify_track['name']
@@ -156,7 +162,7 @@ class SpotifyService:
         )
 
         if not created:
-            # Update BPM and energy from Spotify/analysis if they were manual entries
+            # Update BPM and energy from various sources
             track.bpm = bpm
             track.energy = energy
             track.save()

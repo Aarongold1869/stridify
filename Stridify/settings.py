@@ -184,6 +184,9 @@ SPOTIFY_REDIRECT_URI = os.getenv('SPOTIFY_REDIRECT_URI', 'https://endowment-slee
 LASTFM_API_KEY = os.getenv('LASTFM_API_KEY', '')
 LASTFM_SHARED_SECRET = os.getenv('LASTFM_SHARED_SECRET', '')
 
+# SonoVault Configuration
+SONOVAULT_API_KEY = os.getenv('SONOVAULT_API_KEY', '')
+
 # Security: Warn if .cache file exists (Spotipy OAuth token cache)
 # All SpotifyOAuth instances MUST use cache_path=False to store tokens in DB instead
 import warnings
