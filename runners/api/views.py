@@ -151,7 +151,12 @@ class SpotifyAuthViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'])
     def callback(self, request):
-        """Handle Spotify OAuth callback"""
+        """Handle Spotify OAuth callback
+
+        Security: Tokens flow directly from Spotify to database.
+        SpotifyService.get_oauth_handler() has cache_path=False to
+        prevent .cache files with sensitive credentials.
+        """
         code = request.query_params.get('code')
 
         if not code:

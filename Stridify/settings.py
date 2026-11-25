@@ -11,6 +11,11 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -171,6 +176,6 @@ SIMPLE_JWT = {
 }
 
 # Spotify Configuration
-SPOTIFY_CLIENT_ID = 'your_client_id_here'
-SPOTIFY_CLIENT_SECRET = 'your_client_secret_here'
-SPOTIFY_REDIRECT_URI = 'http://localhost:8000/api/v1/auth/spotify/callback/'
+SPOTIFY_CLIENT_ID = os.getenv('spotify_client_id', 'your_client_id_here')
+SPOTIFY_CLIENT_SECRET = os.getenv('spotify_client_secret', 'your_client_secret_here')
+SPOTIFY_REDIRECT_URI = os.getenv('SPOTIFY_REDIRECT_URI', 'http://localhost:8000/api/v1/auth/spotify/callback/')

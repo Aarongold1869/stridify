@@ -27,7 +27,12 @@ class SpotifyService:
             self.sp = spotipy.Spotify(client_credentials_manager=credentials_manager)
 
     def get_oauth_handler(self):
-        """Get SpotifyOAuth handler for login flow"""
+        """Get SpotifyOAuth handler for login flow
+
+        IMPORTANT: cache_path=False disables disk caching to prevent
+        .cache files from being created with sensitive tokens.
+        Tokens are stored securely in SpotifyAuth model instead.
+        """
         return SpotifyOAuth(
             client_id=self.client_id,
             client_secret=self.client_secret,
@@ -36,7 +41,8 @@ class SpotifyService:
                 'playlist-modify-public',
                 'playlist-modify-private',
                 'user-library-read',
-            ]
+            ],
+            cache_path=False  # Disable disk caching - use database instead
         )
 
     def get_track_audio_features(self, track_id):
