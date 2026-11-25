@@ -30,7 +30,7 @@ SECRET_KEY = 'django-insecure-#$q5$eyhr$xpw&i=^w_mc47b_p7kctleucl_a+=q7v#f72x#gd
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'endowment-sleep-starting.ngrok-free.dev']
 
 
 # Application definition
@@ -178,4 +178,4 @@ SIMPLE_JWT = {
 # Spotify Configuration
 SPOTIFY_CLIENT_ID = os.getenv('spotify_client_id', 'your_client_id_here')
 SPOTIFY_CLIENT_SECRET = os.getenv('spotify_client_secret', 'your_client_secret_here')
-SPOTIFY_REDIRECT_URI = os.getenv('SPOTIFY_REDIRECT_URI', 'http://localhost:8000/api/v1/auth/spotify/callback/')
+SPOTIFY_REDIRECT_URI = os.getenv('spotify_redirect_uri', 'http://localhost:8000/api/v1/auth/spotify/callback/')

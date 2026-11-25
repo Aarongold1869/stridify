@@ -5,6 +5,8 @@ from collections import Counter
 from playlists.models import Playlist
 from playlists.api.serializers import PlaylistSerializer, PlaylistCreateSerializer
 from playlists.services.generator import PlaylistGenerationRequest, generate_playlist
+from music.services.spotify_service import SpotifyService
+from runners.models import SpotifyAuth
 
 
 class PlaylistViewSet(viewsets.ModelViewSet):
@@ -61,3 +63,59 @@ class PlaylistViewSet(viewsets.ModelViewSet):
             'sync_ratios': dict(ratios),
             'total_tracks': playlist.playlist_tracks.count()
         })
+
+    @action(detail=True, methods=['post'])
+    def export_spotify(self, request, pk=None):
+        """Export playlist to Spotify"""
+        playlist = self.get_object()
+
+        try:
+            spotify_auth = request.user.spotify_auth
+        except SpotifyAuth.DoesNotExist:
+            return Response(
+                {'error': 'Not connected to Spotify. Please authenticate first.'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            if spotify_auth.is_expired:
+                spotify_auth.refresh_access_token(SpotifyService().get_oauth_handler())
+
+            # Get track URIs
+            track_uris = []
+            for entry in playlist.playlist_tracks.all():
+                mapping = entry.track.provider_mappings.filter(provider='spotify').first()
+                if mapping:
+                    track_uris.append(f"spotify:track:{mapping.provider_track_id}")
+
+            if not track_uris:
+                return Response(
+                    {'error': 'No Spotify tracks found in playlist'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Create playlist on Spotify
+            service = SpotifyService(spotify_auth.access_token)
+            result = service.create_playlist(
+                spotify_auth.access_token,
+                playlist.name,
+                track_uris,
+                is_public=False
+            )
+
+            if not result:
+                return Response(
+                    {'error': 'Failed to create Spotify playlist'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            return Response({
+                'message': 'Playlist exported to Spotify',
+                'spotify': result
+            })
+
+        except Exception as e:
+            return Response(
+                {'error': f'Export failed: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )

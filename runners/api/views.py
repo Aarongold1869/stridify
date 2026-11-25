@@ -147,9 +147,14 @@ class SpotifyAuthViewSet(viewsets.ViewSet):
         service = SpotifyService()
         sp_oauth = service.get_oauth_handler()
         auth_url = sp_oauth.get_authorize_url()
+
+        # Store user ID in session to retrieve during callback
+        request.session['spotify_oauth_user_id'] = request.user.id
+        request.session.save()
+
         return Response({'auth_url': auth_url})
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
     def callback(self, request):
         """Handle Spotify OAuth callback
 
@@ -164,6 +169,26 @@ class SpotifyAuthViewSet(viewsets.ViewSet):
                 {'error': 'No authorization code received'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        # Get user from session, fallback to test user for MVP
+        user_id = request.session.get('spotify_oauth_user_id')
+        if not user_id:
+            # For MVP testing, use the test user if no session
+            try:
+                user = User.objects.get(username='user_session')
+            except User.DoesNotExist:
+                return Response(
+                    {'error': 'Session expired. Please authenticate and try again.'},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+        else:
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                return Response(
+                    {'error': 'User not found'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         try:
             service = SpotifyService()
@@ -180,7 +205,7 @@ class SpotifyAuthViewSet(viewsets.ViewSet):
 
             # Save or update SpotifyAuth
             spotify_auth, created = SpotifyAuth.objects.update_or_create(
-                user=request.user,
+                user=user,
                 defaults={
                     'spotify_user_id': user_profile['id'],
                     'access_token': token_info['access_token'],
@@ -190,6 +215,11 @@ class SpotifyAuthViewSet(viewsets.ViewSet):
                     ),
                 }
             )
+
+            # Clean up session
+            if 'spotify_oauth_user_id' in request.session:
+                del request.session['spotify_oauth_user_id']
+            request.session.save()
 
             return Response({
                 'message': 'Successfully connected to Spotify',
