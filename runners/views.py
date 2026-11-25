@@ -1,3 +1,4 @@
 from django.shortcuts import render
 
-# Create your views here.
+# Web views for runners app (template-based)
+# API views are in runners/api/views.py
