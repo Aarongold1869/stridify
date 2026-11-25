@@ -114,10 +114,12 @@ class ProfileDetailView(TemplateView):
 
 ```html
 <!-- templates/runners/profile_detail.html -->
+{% raw %}
 {% extends 'base.html' %}
 {% block content %}
   <!-- Template content -->
 {% endblock %}
+{% endraw %}
 ```
 
 ## Separation Benefits
