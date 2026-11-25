@@ -169,3 +169,8 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_LIFETIME': __import__('datetime').timedelta(minutes=5),
     'SLIDING_TOKEN_REFRESH_LIFETIME': __import__('datetime').timedelta(days=1),
 }
+
+# Spotify Configuration
+SPOTIFY_CLIENT_ID = 'your_client_id_here'
+SPOTIFY_CLIENT_SECRET = 'your_client_secret_here'
+SPOTIFY_REDIRECT_URI = 'http://localhost:8000/api/v1/auth/spotify/callback/'

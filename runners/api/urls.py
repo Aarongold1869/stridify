@@ -3,11 +3,12 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from runners.api.views import (
     LoginView, RegisterView, UserViewSet, RunnerProfileViewSet,
-    UserGenrePreferenceViewSet
+    UserGenrePreferenceViewSet, SpotifyAuthViewSet
 )
 
 router = DefaultRouter()
 router.register(r'auth/register', RegisterView, basename='auth-register')
+router.register(r'auth/spotify', SpotifyAuthViewSet, basename='spotify-auth')
 router.register(r'users', UserViewSet, basename='user')
 router.register(r'profiles', RunnerProfileViewSet, basename='runner-profile')
 router.register(r'genre-preferences', UserGenrePreferenceViewSet, basename='genre-preference')

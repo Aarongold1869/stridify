@@ -106,3 +106,56 @@ class UserGenrePreference(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.genre}"
+
+
+class SpotifyAuth(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="spotify_auth",
+    )
+
+    spotify_user_id = models.CharField(
+        max_length=255,
+        unique=True,
+    )
+
+    access_token = models.TextField()
+
+    refresh_token = models.TextField()
+
+    token_expires_at = models.DateTimeField()
+
+    scope = models.CharField(
+        max_length=500,
+        default="playlist-modify-public playlist-modify-private",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Spotify Authorization"
+
+    def __str__(self):
+        return f"{self.user} - Spotify"
+
+    @property
+    def is_expired(self):
+        from django.utils import timezone
+        return timezone.now() >= self.token_expires_at
+
+    def refresh_access_token(self, sp_oauth):
+        """Refresh access token using refresh token"""
+        token_info = sp_oauth.refresh_access_token(self.refresh_token)
+
+        from django.utils import timezone
+        from datetime import timedelta
+
+        self.access_token = token_info['access_token']
+        if 'refresh_token' in token_info:
+            self.refresh_token = token_info['refresh_token']
+        self.token_expires_at = timezone.now() + timedelta(seconds=token_info['expires_in'])
+        self.save()
+
+        return self.access_token

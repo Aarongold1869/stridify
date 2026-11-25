@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
-from runners.models import RunnerProfile, UserGenrePreference
+from runners.models import RunnerProfile, UserGenrePreference, SpotifyAuth
 from runners.services.cadence import resolve_runner_cadence
 from music.api.serializers import GenreSerializer
 
@@ -65,6 +65,17 @@ class PasswordResetRequestSerializer(serializers.Serializer):
         if not User.objects.filter(email=value).exists():
             raise serializers.ValidationError("User with this email does not exist")
         return value
+
+
+class SpotifyAuthSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SpotifyAuth
+        fields = ('spotify_user_id', 'created_at', 'updated_at', 'is_expired')
+        read_only_fields = ('spotify_user_id', 'created_at', 'updated_at', 'is_expired')
+
+    @property
+    def is_expired(self, obj):
+        return obj.is_expired
 
 
 class UserGenrePreferenceSerializer(serializers.ModelSerializer):
