@@ -5,6 +5,7 @@ from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
 from music.models import Track, Genre, TrackProviderMapping
+from music.services.audio_analysis_service import AudioAnalysisService
 
 
 class SpotifyService:
@@ -116,8 +117,16 @@ class SpotifyService:
 
         # Get audio features (optional - use defaults if unavailable)
         features = self.get_track_audio_features(spotify_id)
-        bpm = features['bpm'] if features else Decimal('120')
+        bpm = features['bpm'] if features else None
         energy = features['energy'] if features else Decimal('0.5')
+
+        # Fallback to audio analysis if Spotify audio features unavailable
+        if not bpm:
+            bpm = AudioAnalysisService.get_tempo_for_track(spotify_track)
+
+        # Final fallback to default
+        if not bpm:
+            bpm = Decimal('120')
 
         # Extract track info
         title = spotify_track['name']
@@ -140,7 +149,7 @@ class SpotifyService:
         )
 
         if not created:
-            # Update BPM and energy from Spotify if they were manual entries
+            # Update BPM and energy from Spotify/analysis if they were manual entries
             track.bpm = bpm
             track.energy = energy
             track.save()

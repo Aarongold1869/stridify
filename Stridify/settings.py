@@ -179,3 +179,14 @@ SIMPLE_JWT = {
 SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID', 'your_client_id_here')
 SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET', 'your_client_secret_here')
 SPOTIFY_REDIRECT_URI = os.getenv('SPOTIFY_REDIRECT_URI', 'https://endowment-sleep-starting.ngrok-free.dev/api/v1/auth/spotify/callback/')
+
+# Security: Warn if .cache file exists (Spotipy OAuth token cache)
+# All SpotifyOAuth instances MUST use cache_path=False to store tokens in DB instead
+import warnings
+if Path(BASE_DIR / '.cache').exists():
+    warnings.warn(
+        "SECURITY WARNING: .cache file found in repo root. This may contain sensitive Spotify tokens. "
+        "Delete it immediately: rm .cache. All SpotifyOAuth instances must use cache_path=False. "
+        "Tokens should be stored in the database (SpotifyAuth model) only.",
+        RuntimeWarning
+    )
