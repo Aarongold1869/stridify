@@ -283,26 +283,21 @@ class SpotifyAuthViewSet(viewsets.ViewSet):
             if spotify_auth.is_expired:
                 spotify_auth.refresh_access_token(SpotifyService().get_oauth_handler())
 
-            service = SpotifyService(spotify_auth.access_token)
-            spotify_tracks = service.get_user_saved_tracks(
-                spotify_auth.access_token,
-                limit=50
-            )
+            # Import and use the new library sync service
+            from music.services.library_sync import sync_user_library, LibrarySyncRequest
 
-            synced = service.bulk_sync_tracks(spotify_tracks)
+            sync_request = LibrarySyncRequest(user=request.user)
+            result = sync_user_library(sync_request)
 
             return Response({
-                'synced_count': len(synced),
-                'new_count': sum(1 for s in synced if s['created']),
-                'tracks': [
-                    {
-                        'title': s['track'].title,
-                        'artist': s['track'].artist,
-                        'bpm': float(s['track'].bpm),
-                        'created': s['created']
-                    }
-                    for s in synced
-                ]
+                'message': 'Successfully synced Spotify library',
+                'summary': {
+                    'total_synced': result.total_tracks_synced,
+                    'new_tracks': result.new_tracks,
+                    'existing_tracks': result.existing_tracks,
+                    'failed': result.failed_count,
+                    'batches': result.batches_processed,
+                }
             })
 
         except Exception as e:

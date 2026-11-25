@@ -114,10 +114,10 @@ class SpotifyService:
         if existing_mapping and skip_existing:
             return existing_mapping.track, False
 
-        # Get audio features
+        # Get audio features (optional - use defaults if unavailable)
         features = self.get_track_audio_features(spotify_id)
-        if not features:
-            return None, False
+        bpm = features['bpm'] if features else Decimal('120')
+        energy = features['energy'] if features else Decimal('0.5')
 
         # Extract track info
         title = spotify_track['name']
@@ -134,15 +134,15 @@ class SpotifyService:
                 'artist': artist,
                 'album': album,
                 'duration_seconds': duration_seconds,
-                'bpm': features['bpm'],
-                'energy': features['energy'],
+                'bpm': bpm,
+                'energy': energy,
             }
         )
 
         if not created:
             # Update BPM and energy from Spotify if they were manual entries
-            track.bpm = features['bpm']
-            track.energy = features['energy']
+            track.bpm = bpm
+            track.energy = energy
             track.save()
 
         # Create provider mapping

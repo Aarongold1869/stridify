@@ -7,7 +7,8 @@ from django.db.models import Q, QuerySet, Prefetch
 
 from music.choices import SyncRatio
 from music.models import Track, Genre
-from runners.models import UserGenrePreference
+from runners.models import UserGenrePreference, SpotifyAuth
+from music.services.spotify_service import SpotifyService
 
 
 WEIGHTS = {
@@ -234,6 +235,59 @@ def find_matching_tracks(
     return query
 
 
+def search_and_sync_spotify_tracks(
+    target_bpm: Decimal,
+    bpm_tolerance_percent: Decimal = BPM_TOLERANCE_PERCENT,
+    genres: Optional[QuerySet[Genre]] = None,
+    limit: int = 20,
+    access_token: Optional[str] = None,
+) -> list[Track]:
+    """
+    Search Spotify for tracks matching BPM and genres, then sync to database.
+
+    Returns list of newly synced tracks with Spotify IDs and audio features.
+    Handles errors gracefully — if Spotify search fails, returns empty list.
+    """
+    try:
+        service = SpotifyService(access_token=access_token)
+
+        # Build genre-based search query (Spotify doesn't support tempo in search)
+        genre_names = []
+        if genres and genres.exists():
+            genre_names = [g.name.lower() for g in genres[:3]]
+
+        # Construct search query with genre keywords
+        search_query = " ".join(genre_names) if genre_names else "pop rock"
+
+        tolerance = target_bpm * bpm_tolerance_percent / 100
+        min_bpm = target_bpm - tolerance
+        max_bpm = target_bpm + tolerance
+
+        synced_tracks = []
+
+        # Search Spotify - will get back tracks we then filter by audio features
+        results = service.sp.search(q=search_query, type="track", limit=20)
+
+        if results["tracks"]["items"]:
+            for spotify_track in results["tracks"]["items"]:
+                # Get audio features to check BPM
+                features = service.get_track_audio_features(spotify_track["id"])
+
+                if features and min_bpm <= features["bpm"] <= max_bpm:
+                    track, created = service.sync_track_to_db(spotify_track)
+                    if track:
+                        synced_tracks.append(track)
+
+                    if len(synced_tracks) >= limit:
+                        break
+
+        return synced_tracks
+
+    except Exception as e:
+        print(f"[Warning] Spotify search failed: {e}")
+        return []
+
+
 def recommend_tracks(
     query: RecommendationQuery,
 ) -> list[TrackScore]:
@@ -242,6 +296,8 @@ def recommend_tracks(
 
     Uses priority scoring: BPM match (50%), genre (25%),
     energy (15%), artist diversity (10%).
+
+    If insufficient local tracks found, auto-searches Spotify and syncs new tracks.
 
     Returns top-scored tracks, ordered by score descending,
     with artist diversity considered.
@@ -262,6 +318,37 @@ def recommend_tracks(
         genres=genre_queryset if genre_queryset.exists() else None,
         exclude_artists=query.exclude_artists,
     )
+
+    # Check if we have enough local tracks; if not, search Spotify
+    threshold = query.num_tracks  # Need at least this many to avoid fallback
+    if candidate_tracks.count() < threshold:
+        print(f"[Info] Only {candidate_tracks.count()} local tracks for {query.target_bpm} BPM target. Searching Spotify...")
+
+        # Try to get user's access token for authenticated search
+        access_token = None
+        try:
+            spotify_auth = query.user.spotify_auth
+            if not spotify_auth.is_expired:
+                access_token = spotify_auth.access_token
+        except:
+            pass
+
+        new_tracks = search_and_sync_spotify_tracks(
+            target_bpm=query.target_bpm,
+            bpm_tolerance_percent=query.bpm_tolerance_percent,
+            genres=genre_queryset if genre_queryset.exists() else None,
+            limit=20,
+            access_token=access_token,
+        )
+        if new_tracks:
+            print(f"[Info] Found and synced {len(new_tracks)} tracks from Spotify")
+            # Requery to include newly synced tracks
+            candidate_tracks = find_matching_tracks(
+                target_bpm=query.target_bpm,
+                bpm_tolerance_percent=query.bpm_tolerance_percent,
+                genres=genre_queryset if genre_queryset.exists() else None,
+                exclude_artists=query.exclude_artists,
+            )
 
     scored_tracks = []
     selected_artists = set()
