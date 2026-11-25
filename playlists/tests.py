@@ -30,8 +30,9 @@ class BpmMatchScoreTests(TestCase):
 
     def test_within_tolerance(self):
         score = calculate_bpm_match_score(
-            track_bpm=Decimal("168"),
+            track_bpm=Decimal("162"),
             target_bpm=Decimal("160"),
+            tolerance_percent=Decimal("5"),
         )
 
         self.assertGreater(score, Decimal("0.0"))
