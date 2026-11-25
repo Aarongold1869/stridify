@@ -2,6 +2,7 @@
 .env
 .env.local
 *.env
+.lastfm_cache/
 
 # Sensitive files
 .cache

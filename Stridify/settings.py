@@ -180,6 +180,10 @@ SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID', 'your_client_id_here')
 SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET', 'your_client_secret_here')
 SPOTIFY_REDIRECT_URI = os.getenv('SPOTIFY_REDIRECT_URI', 'https://endowment-sleep-starting.ngrok-free.dev/api/v1/auth/spotify/callback/')
 
+# Last.fm Configuration
+LASTFM_API_KEY = os.getenv('LASTFM_API_KEY', '')
+LASTFM_SHARED_SECRET = os.getenv('LASTFM_SHARED_SECRET', '')
+
 # Security: Warn if .cache file exists (Spotipy OAuth token cache)
 # All SpotifyOAuth instances MUST use cache_path=False to store tokens in DB instead
 import warnings

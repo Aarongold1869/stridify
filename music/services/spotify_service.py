@@ -6,6 +6,7 @@ from datetime import timedelta
 from decimal import Decimal
 from music.models import Track, Genre, TrackProviderMapping
 from music.services.audio_analysis_service import AudioAnalysisService
+from music.services.lastfm_service import LastFmService
 
 
 class SpotifyService:
@@ -120,9 +121,15 @@ class SpotifyService:
         bpm = features['bpm'] if features else None
         energy = features['energy'] if features else Decimal('0.5')
 
-        # Fallback to audio analysis if Spotify audio features unavailable
+        # Fallback 1: audio analysis on preview URL
         if not bpm:
             bpm = AudioAnalysisService.get_tempo_for_track(spotify_track)
+
+        # Fallback 2: Last.fm genre-based estimation
+        if not bpm:
+            artist = ', '.join([a['name'] for a in spotify_track['artists']])
+            title = spotify_track['name']
+            bpm = LastFmService.get_track_bpm(artist, title)
 
         # Final fallback to default
         if not bpm:
