@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
 from runners.models import RunnerProfile, UserGenrePreference
 from runners.services.cadence import resolve_runner_cadence
 from music.api.serializers import GenreSerializer
@@ -19,8 +20,8 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
-    password2 = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
+    password2 = serializers.CharField(write_only=True, required=True)
 
     class Meta:
         model = User
@@ -28,7 +29,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         if data['password'] != data['password2']:
-            raise serializers.ValidationError("Passwords don't match")
+            raise serializers.ValidationError({"password": "Passwords don't match"})
         return data
 
     def create(self, validated_data):
@@ -38,6 +39,32 @@ class RegisterSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
         return user
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, write_only=True, validators=[validate_password])
+    new_password2 = serializers.CharField(required=True, write_only=True)
+
+    def validate(self, data):
+        if data['new_password'] != data['new_password2']:
+            raise serializers.ValidationError({"new_password": "Passwords don't match"})
+        return data
+
+    def validate_old_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Old password is incorrect")
+        return value
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        if not User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("User with this email does not exist")
+        return value
 
 
 class UserGenrePreferenceSerializer(serializers.ModelSerializer):
