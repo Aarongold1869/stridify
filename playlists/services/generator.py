@@ -7,7 +7,7 @@ from django.db import transaction
 
 from music.choices import SyncRatio
 from music.models import Track
-from runners.models import RunnerProfile
+from runners.models import RunnerProfile, UserGenrePreference
 from runners.services.cadence import (
     resolve_runner_cadence,
     get_tempo_targets_for_cadence,
@@ -214,6 +214,7 @@ def generate_playlist(
         target_pace_seconds=runner_profile.target_pace_seconds,
         measured_cadence_spm=runner_profile.measured_cadence_spm,
         measured_step_length_inches=runner_profile.step_length_inches,
+        height_inches=runner_profile.height_inches,
         leg_length_inches=runner_profile.leg_length_inches,
     )
 
@@ -243,10 +244,14 @@ def generate_playlist(
             recommendations_by_ratio[sync_ratio] = recommendations
 
     if not recommendations_by_ratio:
+        track_count = Track.objects.count()
+        pref_count = UserGenrePreference.objects.filter(user=request.user).count()
+
         raise ValueError(
             f"No recommendations found for any sync ratio. "
-            f"Check that tracks exist in the database with appropriate BPM "
-            f"and that user has genre preferences set."
+            f"Cadence: {cadence_result.cadence_spm} SPM, "
+            f"Tempo targets: {tempo_result.tempo_targets}, "
+            f"DB: {track_count} tracks, {pref_count} user preferences."
         )
 
     # Step 5: Select and order tracks across all sync ratios

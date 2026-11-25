@@ -8,6 +8,7 @@ from runners.services.cadence import (
     derive_step_length,
     calculate_target_cadence,
     estimate_step_length_from_leg_length,
+    estimate_stride_from_height,
     resolve_runner_cadence,
     get_tempo_targets_for_cadence,
 )
@@ -86,6 +87,83 @@ class EstimateStepLengthTests(SimpleTestCase):
             )
 
 
+class EstimateStrideFromHeightTests(SimpleTestCase):
+
+    def test_stride_at_5_foot_0(self):
+        result = estimate_stride_from_height(
+            height_inches=Decimal("60"),
+        )
+
+        self.assertEqual(result, Decimal("35.5"))
+
+    def test_stride_at_5_foot_4(self):
+        result = estimate_stride_from_height(
+            height_inches=Decimal("64"),
+        )
+
+        self.assertEqual(result, Decimal("38.0"))
+
+    def test_stride_at_5_foot_8(self):
+        result = estimate_stride_from_height(
+            height_inches=Decimal("68"),
+        )
+
+        self.assertEqual(result, Decimal("41.5"))
+
+    def test_stride_at_6_foot_0(self):
+        result = estimate_stride_from_height(
+            height_inches=Decimal("72"),
+        )
+
+        self.assertEqual(result, Decimal("45.5"))
+
+    def test_stride_at_6_foot_2(self):
+        result = estimate_stride_from_height(
+            height_inches=Decimal("74"),
+        )
+
+        self.assertEqual(result, Decimal("48.5"))
+
+    def test_interpolates_between_data_points(self):
+        # 5'6" = 66 inches (between 64 and 68)
+        result = estimate_stride_from_height(
+            height_inches=Decimal("66"),
+        )
+
+        # Should interpolate between 38.0 and 41.5
+        # Fraction: (66 - 64) / (68 - 64) = 0.5
+        # Result: 38.0 + (41.5 - 38.0) * 0.5 = 38.0 + 1.75 = 39.75
+        self.assertEqual(result, Decimal("39.8"))
+
+    def test_below_minimum_height_uses_minimum(self):
+        result = estimate_stride_from_height(
+            height_inches=Decimal("55"),
+        )
+
+        # Should use minimum height data (60 inches)
+        self.assertEqual(result, Decimal("35.5"))
+
+    def test_above_maximum_height_uses_maximum(self):
+        result = estimate_stride_from_height(
+            height_inches=Decimal("78"),
+        )
+
+        # Should use maximum height data (74 inches)
+        self.assertEqual(result, Decimal("48.5"))
+
+    def test_rejects_zero_height(self):
+        with self.assertRaises(ValueError):
+            estimate_stride_from_height(
+                height_inches=Decimal("0"),
+            )
+
+    def test_rejects_negative_height(self):
+        with self.assertRaises(ValueError):
+            estimate_stride_from_height(
+                height_inches=Decimal("-70"),
+            )
+
+
 class ResolveRunnerCadenceTests(SimpleTestCase):
 
     def test_uses_measured_cadence_when_provided(self):
@@ -122,7 +200,7 @@ class ResolveRunnerCadenceTests(SimpleTestCase):
 
         self.assertEqual(result.step_length_inches, Decimal("12.9"))
         self.assertEqual(result.source, "estimated_from_leg_length")
-        self.assertEqual(result.cadence_spm, Decimal("409.3"))
+        self.assertEqual(result.cadence_spm, Decimal("491.2"))
 
     def test_prefers_measured_cadence_over_step_length(self):
         result = resolve_runner_cadence(
@@ -134,15 +212,36 @@ class ResolveRunnerCadenceTests(SimpleTestCase):
         self.assertEqual(result.cadence_spm, Decimal("160"))
         self.assertEqual(result.source, "measured")
 
-    def test_prefers_measured_step_length_over_leg_length(self):
+    def test_prefers_measured_step_length_over_height(self):
         result = resolve_runner_cadence(
             target_pace_seconds=600,
             measured_step_length_inches=Decimal("39.6"),
-            leg_length_inches=Decimal("30"),
+            height_inches=Decimal("68"),
         )
 
         self.assertEqual(result.cadence_spm, Decimal("160.0"))
         self.assertEqual(result.source, "measured_step_length")
+
+    def test_estimates_from_height_when_no_measured_data(self):
+        result = resolve_runner_cadence(
+            target_pace_seconds=600,
+            height_inches=Decimal("68"),
+        )
+
+        self.assertEqual(result.step_length_inches, Decimal("41.5"))
+        self.assertEqual(result.source, "estimated_from_height")
+        # Cadence: 6336 / 41.5 = 152.65 SPM ≈ 152.7 SPM
+        self.assertEqual(result.cadence_spm, Decimal("152.7"))
+
+    def test_prefers_height_over_leg_length(self):
+        result = resolve_runner_cadence(
+            target_pace_seconds=600,
+            height_inches=Decimal("68"),
+            leg_length_inches=Decimal("30"),
+        )
+
+        self.assertEqual(result.source, "estimated_from_height")
+        self.assertEqual(result.step_length_inches, Decimal("41.5"))
 
     def test_raises_error_when_no_data_provided(self):
         with self.assertRaises(ValueError):
@@ -249,7 +348,7 @@ class EndToEndCadenceWorkflowTests(SimpleTestCase):
             cadence_spm=cadence_result.cadence_spm,
         )
 
-        self.assertEqual(tempo_result.cadence_spm, Decimal("409.3"))
+        self.assertEqual(tempo_result.cadence_spm, Decimal("491.2"))
         self.assertIn(SyncRatio.ONE_TO_ONE, tempo_result.tempo_targets)
         self.assertIn(SyncRatio.HALF_TIME, tempo_result.tempo_targets)
         self.assertIn(SyncRatio.DOUBLE_TIME, tempo_result.tempo_targets)

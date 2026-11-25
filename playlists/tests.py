@@ -579,7 +579,9 @@ class PlaylistGenerationTests(TestCase):
 
         self.runner_profile = RunnerProfile.objects.create(
             user=self.user,
-            leg_length_inches=Decimal("30"),
+            height_inches=Decimal("70"),
+            leg_length_inches=Decimal("32"),
+            measured_cadence_spm=Decimal("160"),
             target_pace_seconds=600,
         )
 
@@ -779,13 +781,18 @@ class PlaylistGenerationTests(TestCase):
             generate_playlist,
         )
 
-        profile_no_pace = RunnerProfile.objects.create(
-            user=self.user,
+        other_user = User.objects.create_user(
+            username="norunner",
+            email="norunner@example.com",
+        )
+
+        RunnerProfile.objects.create(
+            user=other_user,
             leg_length_inches=Decimal("30"),
         )
 
         request = PlaylistGenerationRequest(
-            user=self.user,
+            user=other_user,
             playlist_name="Run",
             duration_minutes=30,
         )
