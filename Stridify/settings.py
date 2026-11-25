@@ -176,9 +176,6 @@ SIMPLE_JWT = {
 }
 
 # Spotify Configuration
-SPOTIFY_CLIENT_ID = os.getenv('spotify_client_id', 'your_client_id_here')
-SPOTIFY_CLIENT_SECRET = os.getenv('spotify_client_secret', 'your_client_secret_here')
-SPOTIFY_REDIRECT_URI = os.getenv('spotify_redirect_uri', 'http://localhost:8000/api/v1/auth/spotify/callback/')
-
-# Last.fm Configuration (for track metadata enrichment)
-LASTFM_API_KEY = os.getenv('lastfm_api_key', 'your_lastfm_api_key_here')
+SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID', 'your_client_id_here')
+SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET', 'your_client_secret_here')
+SPOTIFY_REDIRECT_URI = os.getenv('SPOTIFY_REDIRECT_URI', 'https://endowment-sleep-starting.ngrok-free.dev/api/v1/auth/spotify/callback/')

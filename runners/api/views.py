@@ -141,7 +141,7 @@ class UserGenrePreferenceViewSet(viewsets.ModelViewSet):
 class SpotifyAuthViewSet(viewsets.ViewSet):
     permission_classes = (permissions.IsAuthenticated,)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def login(self, request):
         """Redirect user to Spotify OAuth login"""
         service = SpotifyService()
