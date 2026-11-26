@@ -212,41 +212,37 @@ def resolve_runner_cadence(
     """
     Resolve a runner's target cadence using priority chain:
 
-    1. If measured cadence provided, use it directly (most accurate).
-    2. Else if measured step length provided, calculate cadence from it.
-    3. Else if height provided, estimate stride from empirical data, then calculate.
-    4. Else if leg length provided, estimate step length, then calculate.
-    5. Else raise error (insufficient data).
+    1. If measured stride length provided, calculate cadence from it.
+    2. Else if height provided, estimate stride from empirical data, then calculate.
+    3. Else if leg length provided, estimate step length, then calculate.
+    4. Else raise error (insufficient data).
+
+    Note: Cadence is pace-dependent, so measured values must include the pace
+    at which they were recorded. If a measured stride length is provided but
+    the target pace differs, we use the measured stride with the target pace
+    (which assumes stride length is relatively constant across moderate paces).
 
     Returns CadenceResult with source indicating which path was taken.
 
-    Priority prefers measured data, then height-based estimation
-    (more accurate than leg_length alone).
+    Note: target_pace_seconds is in seconds/km and must be converted to
+    seconds/mile for the calculate_cadence function.
     """
 
     if target_pace_seconds <= 0:
         raise ValueError("Target pace must be greater than zero.")
 
-    if measured_cadence_spm is not None:
-        if measured_cadence_spm <= 0:
-            raise ValueError("Measured cadence must be greater than zero.")
+    # Convert pace from seconds/km to seconds/mile
+    # 1 mile = 1.60934 km
+    KM_PER_MILE = Decimal("1.60934")
+    pace_seconds_per_mile = Decimal(target_pace_seconds) * KM_PER_MILE
 
-        return CadenceResult(
-            target_pace_seconds=target_pace_seconds,
-            cadence_spm=measured_cadence_spm,
-            step_length_inches=derive_step_length(
-                target_pace_seconds,
-                measured_cadence_spm,
-            ),
-            source="measured",
-        )
-
+    # Priority 1: Use measured stride length if available
     if measured_step_length_inches is not None:
         if measured_step_length_inches <= 0:
             raise ValueError("Step length must be greater than zero.")
 
         cadence = calculate_cadence(
-            target_pace_seconds,
+            int(pace_seconds_per_mile),
             measured_step_length_inches,
         )
 
@@ -257,6 +253,7 @@ def resolve_runner_cadence(
             source="measured_step_length",
         )
 
+    # Priority 2: Estimate from height
     if height_inches is not None:
         if height_inches <= 0:
             raise ValueError("Height must be greater than zero.")
@@ -264,7 +261,7 @@ def resolve_runner_cadence(
         estimated_stride = estimate_stride_from_height(height_inches)
 
         cadence = calculate_cadence(
-            target_pace_seconds,
+            int(pace_seconds_per_mile),
             estimated_stride,
         )
 
@@ -275,6 +272,7 @@ def resolve_runner_cadence(
             source="estimated_from_height",
         )
 
+    # Priority 3: Estimate from leg length
     if leg_length_inches is not None:
         if leg_length_inches <= 0:
             raise ValueError("Leg length must be greater than zero.")
@@ -284,7 +282,7 @@ def resolve_runner_cadence(
         )
 
         cadence = calculate_cadence(
-            target_pace_seconds,
+            int(pace_seconds_per_mile),
             estimated_step_length,
         )
 
@@ -296,7 +294,8 @@ def resolve_runner_cadence(
         )
 
     raise ValueError(
-        "Must provide either measured cadence, measured step length, height, or leg length."
+        "Insufficient data to calculate cadence. "
+        "Provide measured_step_length_inches, height_inches, or leg_length_inches."
     )
 
 

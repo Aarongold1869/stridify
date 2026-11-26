@@ -31,34 +31,32 @@ class RunnerProfile(models.Model):
         blank=True,
     )
 
-    # User's preferred target pace in seconds per mile.
+    # User's target pace in seconds per km
     target_pace_seconds = models.PositiveIntegerField(
         null=True,
         blank=True,
         validators=[MinValueValidator(1)],
+        help_text="Target running pace in seconds per kilometer",
     )
 
-    # Optional measured cadence from a wearable or manual input.
-    measured_cadence_spm = models.DecimalField(
+    # Measured stride length at a specific pace (see measured_pace_seconds)
+    # Stride = distance covered in one complete gait cycle (both feet)
+    measured_step_length_inches = models.DecimalField(
         max_digits=6,
         decimal_places=2,
         null=True,
         blank=True,
         validators=[MinValueValidator(1)],
+        help_text="Runner's actual stride length measured at measured_pace_seconds",
     )
 
-    # Optional measured average step length.
-    step_length_inches = models.DecimalField(
-        max_digits=6,
-        decimal_places=2,
+    # Pace at which stride length was measured (seconds per km)
+    # Must be paired with measured_step_length_inches
+    measured_pace_seconds = models.PositiveIntegerField(
         null=True,
         blank=True,
         validators=[MinValueValidator(1)],
-    )
-
-    cadence_observed_pace_seconds = models.PositiveIntegerField(
-        null=True,
-        blank=True,
+        help_text="Pace (seconds/km) at which measured_step_length_inches was recorded",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)

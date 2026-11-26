@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.db import transaction
 
 from music.choices import SyncRatio
-from music.models import Track
+from music.models import Track, TrackProviderMapping
 from runners.models import RunnerProfile, UserGenrePreference
 from runners.services.cadence import (
     resolve_runner_cadence,
@@ -23,6 +23,28 @@ from playlists.services.recommendation import (
 
 
 SECONDS_PER_MINUTE = 60
+KM_PER_MILE = Decimal("1.60934")
+
+
+def _format_pace_for_display(pace_seconds: int) -> str:
+    """Convert pace in seconds/km to min:sec/mile format.
+
+    Example: 300 seconds/km -> 8:03/mile
+    """
+    # Convert km to miles
+    pace_seconds_per_mile = Decimal(pace_seconds) * KM_PER_MILE
+    minutes = int(pace_seconds_per_mile) // 60
+    seconds = int(pace_seconds_per_mile) % 60
+    return f"{minutes}:{seconds:02d}/mile"
+
+
+def _generate_playlist_name(duration_minutes: int, pace_seconds: int) -> str:
+    """Generate a user-friendly playlist name.
+
+    Example: "30min Run - Pace 8:03/mile"
+    """
+    pace_str = _format_pace_for_display(pace_seconds)
+    return f"{duration_minutes}min Run - Pace {pace_str}"
 
 
 @dataclass
@@ -212,8 +234,7 @@ def generate_playlist(
     # Step 1: Resolve cadence from runner profile
     cadence_result = resolve_runner_cadence(
         target_pace_seconds=runner_profile.target_pace_seconds,
-        measured_cadence_spm=runner_profile.measured_cadence_spm,
-        measured_step_length_inches=runner_profile.step_length_inches,
+        measured_step_length_inches=runner_profile.measured_step_length_inches,
         height_inches=runner_profile.height_inches,
         leg_length_inches=runner_profile.leg_length_inches,
     )
@@ -263,29 +284,51 @@ def generate_playlist(
     if not selected_tracks:
         raise ValueError("No tracks selected for playlist after filtering.")
 
+    # Filter to only include tracks with Spotify provider mappings
+    spotify_track_ids = set(
+        TrackProviderMapping.objects.filter(provider='spotify').values_list(
+            'track_id', flat=True
+        )
+    )
+    selected_tracks_with_spotify = [
+        ts for ts in selected_tracks if ts.track.id in spotify_track_ids
+    ]
+
+    if not selected_tracks_with_spotify:
+        raise ValueError(
+            "No selected tracks have Spotify provider mappings. "
+            "Ensure tracks are synced from Spotify before generating playlists."
+        )
+
+    # Generate user-friendly playlist name
+    friendly_name = _generate_playlist_name(
+        duration_minutes=request.duration_minutes,
+        pace_seconds=runner_profile.target_pace_seconds,
+    )
+
     # Step 6: Create database records
     playlist = _create_playlist_records(
         user=request.user,
-        playlist_name=request.playlist_name,
+        playlist_name=friendly_name,
         target_pace_seconds=runner_profile.target_pace_seconds,
         cadence_spm=cadence_result.cadence_spm,
-        selected_tracks=selected_tracks,
+        selected_tracks=selected_tracks_with_spotify,
         algorithm_version=request.algorithm_version,
     )
 
     # Step 7: Calculate result metrics
     sync_ratio_counts = {}
-    for track_score in selected_tracks:
+    for track_score in selected_tracks_with_spotify:
         ratio_name = track_score.sync_ratio.label
         sync_ratio_counts[ratio_name] = sync_ratio_counts.get(ratio_name, 0) + 1
 
     total_duration_seconds = sum(
-        t.track.duration_seconds for t in selected_tracks
+        t.track.duration_seconds for t in selected_tracks_with_spotify
     )
 
     return PlaylistGenerationResult(
         playlist=playlist,
-        tracks_selected=len(selected_tracks),
+        tracks_selected=len(selected_tracks_with_spotify),
         total_duration_seconds=total_duration_seconds,
         cadence_spm=cadence_result.cadence_spm,
         sync_ratio_distribution=sync_ratio_counts,

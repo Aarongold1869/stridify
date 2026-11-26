@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.db.models import Q, QuerySet, Prefetch
 
 from music.choices import SyncRatio
-from music.models import Track, Genre
+from music.models import Track, Genre, TrackProviderMapping
 from runners.models import UserGenrePreference, SpotifyAuth
 from music.services.spotify_service import SpotifyService
 
@@ -310,12 +310,30 @@ def recommend_tracks(
         user=query.user
     ).values_list("genre", flat=True)
 
-    genre_queryset = Genre.objects.filter(id__in=user_genres)
+    # Check if synced Spotify tracks have genres assigned
+    spotify_tracks_with_genres = TrackProviderMapping.objects.filter(
+        provider='spotify',
+        track__genres__isnull=False
+    ).distinct().count()
+
+    total_spotify_tracks = TrackProviderMapping.objects.filter(
+        provider='spotify'
+    ).distinct().count()
+
+    # Only filter by genre if synced tracks actually have genre data
+    # Otherwise use BPM-only matching (more reliable for synced libraries)
+    genre_queryset = None
+    if total_spotify_tracks > 0 and spotify_tracks_with_genres / total_spotify_tracks > 0.5:
+        # At least 50% of synced tracks have genres, so filter
+        genre_queryset = Genre.objects.filter(id__in=user_genres) if user_genres.exists() else None
+
+    if genre_queryset and not genre_queryset.exists():
+        genre_queryset = None
 
     candidate_tracks = find_matching_tracks(
         target_bpm=query.target_bpm,
         bpm_tolerance_percent=query.bpm_tolerance_percent,
-        genres=genre_queryset if genre_queryset.exists() else None,
+        genres=genre_queryset if genre_queryset is not None and genre_queryset.exists() else None,
         exclude_artists=query.exclude_artists,
     )
 
@@ -336,7 +354,7 @@ def recommend_tracks(
         new_tracks = search_and_sync_spotify_tracks(
             target_bpm=query.target_bpm,
             bpm_tolerance_percent=query.bpm_tolerance_percent,
-            genres=genre_queryset if genre_queryset.exists() else None,
+            genres=genre_queryset if genre_queryset is not None and genre_queryset.exists() else None,
             limit=20,
             access_token=access_token,
         )
@@ -346,7 +364,7 @@ def recommend_tracks(
             candidate_tracks = find_matching_tracks(
                 target_bpm=query.target_bpm,
                 bpm_tolerance_percent=query.bpm_tolerance_percent,
-                genres=genre_queryset if genre_queryset.exists() else None,
+                genres=genre_queryset if genre_queryset is not None and genre_queryset.exists() else None,
                 exclude_artists=query.exclude_artists,
             )
 
